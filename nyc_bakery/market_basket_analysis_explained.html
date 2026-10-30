@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Market Basket Analysis - JS Animation</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #1a1a2e; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  </style>
+</head>
+<body>
+<script>
+// === PURE JAVASCRIPT MARKET BASKET ANALYSIS ANIMATION (TEEN VOICE EDITION) ===
+
+// 1. Setup Canvas & UI via Pure JS
+const container = document.createElement('div');
+container.style.position = 'relative';
+container.style.width = '800px';
+container.style.height = '500px';
+container.style.boxShadow = '0 20px 50px rgba(0,0,0,0.5)';
+container.style.borderRadius = '16px';
+container.style.overflow = 'hidden';
+document.body.appendChild(container);
+
+const canvas = document.createElement('canvas');
+canvas.width = 800;
+canvas.height = 500;
+container.appendChild(canvas);
+const ctx = canvas.getContext('2d');
+
+const startBtn = document.createElement('button');
+startBtn.innerText = '▶ Play Animation (Teen Voice)';
+Object.assign(startBtn.style, {
+  position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+  padding: '16px 32px', fontSize: '20px', fontWeight: 'bold', color: '#fff',
+  background: '#ff4d79', border: 'none', borderRadius: '50px', cursor: 'pointer',
+  boxShadow: '0 8px 20px rgba(255, 77, 121, 0.4)'
+});
+container.appendChild(startBtn);
+
+// 2. Storyboard & Teen-Style Script
+const scenes = [
+  {
+    title: "Wait... Can Grocery Stores Read Minds?!",
+    sub: "You go in for literally ONE thing and leave with ten.",
+    speech: "Okay wait, have you ever noticed how grocery stores basically read your mind? Like, you walk in for just a loaf of bread, and right next to it is the exact peanut butter you're suddenly craving!",
+    draw: drawScene1
+  },
+  {
+    title: "It's Called: Market Basket Analysis",
+    sub: "Basically: 'What snacks are besties in your cart?'",
+    speech: "Spoiler alert: it is totally not an accident! It's this super cool trick called Market Basket Analysis. Basically, computers scan millions of receipts to see which items are besties in people's shopping carts.",
+    draw: drawScene2
+  },
+  {
+    title: "The Three Vibe Checks",
+    sub: "Support • Confidence • Lift",
+    speech: "It comes down to three quick vibe checks! First is Support, like, how popular is this duo overall? Second is Confidence: if you grab chips, are you definitely grabbing salsa? And third is Lift: are they actually meant to be, or is everyone just buying milk anyway?",
+    draw: drawScene3
+  },
+  {
+    title: "Supermarket Main Characters",
+    sub: "How stores use this every single day",
+    speech: "So whether it's putting bananas right by the cereal, or websites saying 'You Might Also Like', Market Basket Analysis makes shopping way easier for us, and low-key genius for the store!",
+    draw: drawScene4
+  }
+];
+
+let currentScene = 0;
+let frame = 0;
+let isPlaying = false;
+let audioCtx = null;
+let musicInterval = null;
+let availableVoices = [];
+
+// Preload browser voices
+if ('speechSynthesis' in window) {
+  const loadVoices = () => { availableVoices = window.speechSynthesis.getVoices(); };
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+// Helper to pick the best base female voice for a teen sound
+function getTeenVoice() {
+  if (!availableVoices.length) availableVoices = window.speechSynthesis.getVoices();
+  
+  const preferredNames = [
+    'Samantha', 'Victoria', 'Google US English', 'Microsoft Aria', 
+    'Microsoft Jenny', 'Microsoft Zira', 'Karen', 'Tessa', 'Ava'
+  ];
+  
+  for (const name of preferredNames) {
+    const match = availableVoices.find(v => v.name.includes(name) && v.lang.startsWith('en'));
+    if (match) return match;
+  }
+  // Fallback to any English female-flagged voice or default English voice
+  return availableVoices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female')) 
+      || availableVoices.find(v => v.lang.startsWith('en')) 
+      || null;
+}
+
+// 3. Procedural Upbeat Background Music (Web Audio API)
+function startMusic() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const notes = [329.63, 392.00, 493.88, 659.25, 493.88, 392.00]; // Upbeat E-minor/G-major pop feel
+  let noteIdx = 0;
+
+  musicInterval = setInterval(() => {
+    if (!isPlaying) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(notes[noteIdx % notes.length], audioCtx.currentTime);
+    
+    gain.gain.setValueAtTime(0.035, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.35);
+    noteIdx++;
+  }, 400);
+}
+
+function stopMusic() {
+  if (musicInterval) clearInterval(musicInterval);
+  if (audioCtx) audioCtx.close();
+}
+
+// 4. Voiceover & Scene Progression (Web Speech API)
+function playScene(index) {
+  if (index >= scenes.length) {
+    isPlaying = false;
+    stopMusic();
+    startBtn.innerText = '↻ Replay Animation';
+    startBtn.style.display = 'block';
+    return;
+  }
+  currentScene = index;
+  frame = 0;
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(scenes[index].speech);
+    
+    const selectedVoice = getTeenVoice();
+    if (selectedVoice) utterance.voice = selectedVoice;
+
+    // Higher pitch & slightly faster rate creates an upbeat teenage girl tone
+    utterance.pitch = 1.4; 
+    utterance.rate = 0.95;
+
+    utterance.onend = () => {
+      setTimeout(() => playScene(index + 1), 700);
+    };
+    window.speechSynthesis.speak(utterance);
+  } else {
+    setTimeout(() => playScene(index + 1), 7000);
+  }
+}
+
+// 5. Drawing Helpers & Scene Animations
+function drawCard(x, y, w, h, emoji, label) {
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 16);
+  ctx.fill();
+  ctx.font = '48px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(emoji, x + w / 2, y + h / 2 + 5);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillText(label, x + w / 2, y + h - 15);
+}
+
+function drawScene1(f) {
+  const bounce = Math.sin(f * 0.1) * 12;
+  drawCard(180, 180 + bounce, 130, 140, '🍞', 'Bread');
+  
+  ctx.fillStyle = '#ff4d79';
+  ctx.font = 'bold 40px sans-serif';
+  ctx.fillText('✨+✨', 400, 260);
+
+  drawCard(490, 180 - bounce, 130, 140, '🥜', 'Peanut Butter');
+}
+
+function drawScene2(f) {
+  ctx.fillStyle = '#f8f9fa';
+  ctx.fillRect(310, 150, 180, 200);
+  ctx.fillStyle = '#333';
+  ctx.font = '16px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('RECEIPT #4092', 335, 185);
+  ctx.fillText('-------------', 335, 205);
+  ctx.fillText('1x Chips   $3', 335, 235);
+  ctx.fillText('1x Salsa   $4', 335, 265);
+  ctx.fillText('1x Guac    $5', 335, 295);
+
+  const scanY = 160 + ((f * 2.5) % 180);
+  ctx.strokeStyle = '#ff4d79';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(290, scanY);
+  ctx.lineTo(510, scanY);
+  ctx.stroke();
+}
+
+function drawScene3(f) {
+  const metrics = [
+    { name: '1. Support', desc: 'How popular is the duo?', icon: '🛍️', x: 120 },
+    { name: '2. Confidence', desc: 'Grab A ➔ Def grabbing B?', icon: '💅', x: 325 },
+    { name: '3. Lift', desc: 'Meant to be or random?', icon: '🚀', x: 530 }
+  ];
+  metrics.forEach((m, idx) => {
+    const scale = Math.min(1, Math.max(0, (f - idx * 40) / 20));
+    if (scale > 0) {
+      ctx.save();
+      ctx.translate(m.x + 75, 245);
+      ctx.scale(scale, scale);
+      drawCard(-75, -75, 150, 150, m.icon, m.name);
+      ctx.fillStyle = '#ffb3c6';
+      ctx.font = '13px sans-serif';
+      ctx.fillText(m.desc, 0, 100);
+      ctx.restore();
+    }
+  });
+}
+
+function drawScene4(f) {
+  const slide = Math.min(0, -200 + f * 4.5);
+  drawCard(220 + slide, 180, 150, 140, '🥣', 'Cereal');
+  drawCard(430 - slide, 180, 150, 140, '🍌', 'Bananas');
+  
+  if (slide === 0) {
+    ctx.fillStyle = '#4ecca3';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💖 82% Bestie Match! Put them together! 💖', 400, 365);
+  }
+}
+
+// 6. Main Render Loop
+function render() {
+  ctx.fillStyle = '#16213e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (isPlaying) {
+    const scene = scenes[currentScene];
+    
+    // Header
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(scene.title, 400, 70);
+
+    // Subtitle
+    ctx.fillStyle = '#ff4d79';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(scene.sub, 400, 105);
+
+    // Scene Graphics
+    scene.draw(frame);
+
+    // Caption Bar at Bottom
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(40, 415, 720, 60);
+    ctx.fillStyle = '#e2e2e2';
+    ctx.font = '15px sans-serif';
+    ctx.textAlign = 'center';
+    const words = scene.speech;
+    ctx.fillText(words.length > 92 ? words.substring(0, 92) + '...' : words, 400, 450);
+
+    frame++;
+  }
+  requestAnimationFrame(render);
+}
+
+// Start Event
+startBtn.addEventListener('click', () => {
+  startBtn.style.display = 'none';
+  isPlaying = true;
+  startMusic();
+  playScene(0);
+});
+
+render();
+</script>
+</body>
+</html>
